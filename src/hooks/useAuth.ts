@@ -1,4 +1,3 @@
-
 import { useContext } from 'react';
 import { AuthContext, type AuthContextType } from '@/components/auth/AuthProvider';
 

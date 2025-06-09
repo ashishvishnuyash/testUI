@@ -1,4 +1,4 @@
-# AetherChat - Premium AI Conversations
+# StockWhisperer AI - Premium AI Conversations
 
 This is a Next.js application bootstrapped with `create-next-app` and enhanced for Firebase integration and AI chat features.
 

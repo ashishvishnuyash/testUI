@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     console.log("[AuthProvider] Setting up Firebase Auth listener...");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("[AuthProvider] Auth state changed. User:", user ? user.uid : null);
+      // console.log("[AuthProvider] Auth state changed. User:", user ? user.uid : null);
       setUser(user);
       setLoading(false);
       setAuthError(null); // Clear any previous auth error on successful state change
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Cleanup subscription on unmount
     return () => {
-        console.log("[AuthProvider] Cleaning up Firebase Auth listener.");
+        // console.log("[AuthProvider] Cleaning up Firebase Auth listener.");
         unsubscribe();
     }
   }, []); // Dependency array is empty as `auth` and `firebaseInitError` are imported and their reference shouldn't change unless the module reloads

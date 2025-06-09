@@ -10,6 +10,19 @@ import {
   FunctionCallingMode,
   FunctionDeclaration,
 } from '@google/generative-ai';
+// token management
+import { useTokenUsage } from '@/hooks/useTokenUsage';  
+import { 
+  canUserUseTokens, 
+  addTokenUsage, 
+  estimateTokens,
+  PlanId,
+  TOKEN_LIMITS 
+} from '@/lib/firebase/tokenUsage'; 
+// import { useSubscription } from '@/hooks/useSubscription'; 
+import { add } from 'date-fns';
+import { console } from 'inspector';
+// import { useSubscription } from '@/hooks/useSubscription';
 
 const MODEL_NAME = 'gemini-2.0-flash';
 const STOCK_API_ENDPOINT = 'http://localhost:8000/get_report';
@@ -28,6 +41,7 @@ export interface GenerateChatInput {
 export interface GenerateChatOutput {
   response?: string;
   error?: string;
+  tokenCount?: number; // Optional token count for the response
 }
 
 /* ---------- Helpers ---------- */
@@ -231,6 +245,7 @@ export async function generateGeminiChatMessage(
           alwayse use the function financeAndStockMarketData to get stock market data and Report and ask everything you need to know about the stock market.
           DO NOT provide any financial advice without using the function financeAndStockMarketData.
           You are not allowed to provide any financial advice without using the function financeAndStockMarketData.
+          while asking quetion form financeAndStockMarketData just make grmmarly currect and don't change the meaning of the question.
 
 
           `,
@@ -271,12 +286,12 @@ export async function generateGeminiChatMessage(
       [];
 
     if (functionCalls()?.length) {
-      console.log('Tool call requested:', functionCalls);
+      // console.log('Tool call requested:', functionCalls);
       const functionCall = functionCalls()?.[0];
       if (functionCall?.name === 'financeAndStockMarketData') {
         const args = functionCall.args;
         const query = args?.query;
-        console.log(functionCall ,query )
+        // console.log(functionCall ,query )
 
         if (!query) {
           console.error("Missing query in function call args:", args);
@@ -309,8 +324,18 @@ export async function generateGeminiChatMessage(
           }
         : { error: 'AI generated an empty response.' };
     }
+    // count tokens
+    // const tokenCount = responseText.split(/\s+/).length;
+    const tcount = estimateTokens(responseText)+estimateTokens(input.prompt) + input.history.reduce((acc, msg) => acc + estimateTokens(msg.content.map(p => p.text).join(' ')), 0);
+    // console.log(`Gemini response token count: ${tokenCount} (${tcount} estimated)`);
+    //addTokenUsage
+    // const subscription = useSubscription();
+    // console.log(subscription.currentPlan)
+    // console.log('Gemini response:', responseText);
+    // Return the response
+    
 
-    return { response: responseText };
+    return { response: responseText,tokenCount: tcount };
   } catch (err: any) {
     console.error('Gemini API error:', err);
 

@@ -7,7 +7,7 @@ export default function ChatIndexPage() {
        <Card className="w-full max-w-md text-center shadow-lg border border-border/50">
            <CardHeader>
                 <TrendingUp className="h-12 w-12 mx-auto text-primary mb-4" /> {/* Changed icon */}
-                <CardTitle className="text-2xl font-serif text-primary">Welcome to TradeChat</CardTitle> {/* Updated title */}
+                <CardTitle className="text-2xl font-serif text-primary">Welcome to StockWhisperer AI</CardTitle> {/* Updated title */}
                 <CardDescription className="text-muted-foreground">
                     Start a new market discussion or select an existing one from the sidebar. {/* Updated description */}
                 </CardDescription>

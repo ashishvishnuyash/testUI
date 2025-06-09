@@ -2,8 +2,8 @@ import LoginForm from '@/components/auth/LoginForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Login - TradeChat', // Updated title
-  description: 'Log in to access TradeChat.', // Updated description
+  title: 'Login - StockWhisperer AI', // Updated title
+  description: 'Log in to access StockWhisperer AI.', // Updated description
 };
 
 export default function LoginPage() {

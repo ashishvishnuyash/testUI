@@ -172,23 +172,21 @@ function toast({ ...props }: Toast) {
 }
 
 function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
+  const [toasts, setToasts] = React.useState<Toast[]>([])
 
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }, [state])
-
-  return {
-    ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+  const toast = (toast: Toast) => {
+    setToasts(prev => [...prev, toast])
+    
+    // Simple console log for now - you can replace with actual toast UI
+    // console.log(`Toast: ${toast.title}${toast.description ? ` - ${toast.description}` : ''}`)
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.slice(1))
+    }, 3000)
   }
+
+  return { toast, toasts }
 }
 
 export { useToast, toast }

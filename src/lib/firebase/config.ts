@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, Firestore, connectFirestoreEmulator } from "firebase/firestore";
@@ -20,7 +19,7 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let initializationError: string | null = null;
 
-console.log("--- Firebase Config Module Execution Start ---");
+// console.log("--- Firebase Config Module Execution Start ---");
 
 // Prepare config object for logging (mask API key)
 const configForLogging = {
@@ -32,7 +31,7 @@ const configForLogging = {
     appId: firebaseConfig.appId || 'MISSING_OPTIONAL',
     measurementId: firebaseConfig.measurementId || 'MISSING_OPTIONAL',
 };
-console.log("[Firebase Config] Loaded config from environment:", JSON.stringify(configForLogging, null, 2));
+// console.log("[Firebase Config] Loaded config from environment:", JSON.stringify(configForLogging, null, 2));
 
 // Validate essential configuration keys directly
 const requiredKeys: (keyof typeof firebaseConfig)[] = ['apiKey', 'authDomain', 'projectId'];
@@ -43,30 +42,30 @@ if (missingKeys.length > 0) {
     console.error(`🔴 [Firebase Config] ERROR: ${initializationError}`);
     // Keep app, auth, db as null
 } else {
-    console.log("🟢 [Firebase Config] All essential config variables (apiKey, authDomain, projectId) are present in environment.");
+    // console.log("🟢 [Firebase Config] All essential config variables (apiKey, authDomain, projectId) are present in environment.");
 
     try {
         // Attempt to get or initialize the Firebase App
         if (!getApps().length) {
-            console.log("[Firebase Init] No existing app found. Attempting to initialize a new app...");
+            // console.log("[Firebase Init] No existing app found. Attempting to initialize a new app...");
             app = initializeApp(firebaseConfig);
-            console.log(`🟢 [Firebase Init] New Firebase app initialized successfully. Name: ${app.name}`);
+            // console.log(`🟢 [Firebase Init] New Firebase app initialized successfully. Name: ${app.name}`);
         } else {
-            console.log("[Firebase Init] Getting the existing default Firebase app instance.");
+            // console.log("[Firebase Init] Getting the existing default Firebase app instance.");
             app = getApp(); // Use the default app
-            console.log(`🔵 [Firebase Init] Using existing Firebase app instance. Name: ${app.name}`);
+            // console.log(`🔵 [Firebase Init] Using existing Firebase app instance. Name: ${app.name}`);
         }
 
         // === Crucial Verification Step ===
         // Verify that the initialized/retrieved app object actually contains the necessary config.
         if (app && app.options && app.options.apiKey && app.options.authDomain && app.options.projectId) {
-            console.log("🟢 [Firebase Verification] The initialized/retrieved Firebase App object contains essential config options (apiKey, authDomain, projectId).");
+            // console.log("🟢 [Firebase Verification] The initialized/retrieved Firebase App object contains essential config options (apiKey, authDomain, projectId).");
 
             // Proceed to get services ONLY if app is valid
             try {
-                console.log("[Firebase Services] Attempting to get Auth service...");
+                // console.log("[Firebase Services] Attempting to get Auth service...");
                 auth = getAuth(app);
-                console.log("🟢 [Firebase Services] Auth service obtained successfully.");
+                // console.log("🟢 [Firebase Services] Auth service obtained successfully.");
 
                 // Example for connecting to emulator (only in development)
                 // if (process.env.NODE_ENV === 'development' && !auth.emulatorConfig) {
@@ -81,11 +80,11 @@ if (missingKeys.length > 0) {
             }
 
             try {
-                console.log("[Firebase Services] Attempting to get Firestore service...");
+                // console.log("[Firebase Services] Attempting to get Firestore service...");
                 db = getFirestore(app);
-                console.log("🟢 [Firebase Services] Firestore service obtained successfully.");
+                // console.log("🟢 [Firebase Services] Firestore service obtained successfully.");
 
-                 // Example for connecting to emulator (only in development)
+                  // Example for connecting to emulator (only in development)
                 // if (process.env.NODE_ENV === 'development') {
                 //     try {
                 //         console.log("Attempting to connect to Firestore Emulator...");
@@ -109,9 +108,9 @@ if (missingKeys.length > 0) {
             }
 
         } else {
-             initializationError = "CRITICAL ERROR: The Firebase App object (app or app.options) is missing essential configuration details (apiKey, authDomain, or projectId) AFTER initialization/retrieval. This is likely the cause of 'auth/configuration-not-found'. Check the config values passed to initializeApp.";
-             console.error(`🔴 [Firebase Verification] ${initializationError}`);
-             const appOptionsForLogging = app?.options ? {
+              initializationError = "CRITICAL ERROR: The Firebase App object (app or app.options) is missing essential configuration details (apiKey, authDomain, or projectId) AFTER initialization/retrieval. This is likely the cause of 'auth/configuration-not-found'. Check the config values passed to initializeApp.";
+              console.error(`🔴 [Firebase Verification] ${initializationError}`);
+              const appOptionsForLogging = app?.options ? {
                     apiKey: app.options.apiKey ? '***' : 'MISSING_IN_APP_OBJECT',
                     authDomain: app.options.authDomain || 'MISSING_IN_APP_OBJECT',
                     projectId: app.options.projectId || 'MISSING_IN_APP_OBJECT',
@@ -132,9 +131,9 @@ if (missingKeys.length > 0) {
 }
 
 // Log final state before export
-console.log(`[Firebase Export] Status: ${initializationError ? `🔴 Error: ${initializationError}` : '🟢 Success'}`);
-console.log(`[Firebase Export] Exporting services: App=${app ? `OK (${app.name})` : 'NULL'}, Auth=${auth ? 'OK' : 'NULL'}, DB=${db ? 'OK' : 'NULL'}`);
-console.log("--- Firebase Config Module Execution End ---");
+// console.log(`[Firebase Export] Status: ${initializationError ? `🔴 Error: ${initializationError}` : '🟢 Success'}`);
+// console.log(`[Firebase Export] Exporting services: App=${app ? `OK (${app.name})` : 'NULL'}, Auth=${auth ? 'OK' : 'NULL'}, DB=${db ? 'OK' : 'NULL'}`);
+// console.log("--- Firebase Config Module Execution End ---");
 
 // Export potentially null values; components using them MUST handle null checks
 export { app, auth, db, initializationError };

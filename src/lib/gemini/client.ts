@@ -19,7 +19,7 @@ if (!apiKey) {
     try {
         // Initialize using the stable SDK class name
         geminiClient = new GoogleGenerativeAI(apiKey);
-        console.log("🟢 [Gemini Client] Initialized successfully using @google/generative-ai.");
+        // console.log("🟢 [Gemini Client] Initialized successfully using @google/generative-ai.");
     } catch (e: any) {
         initializationGeminiError = `Failed to initialize GoogleGenerativeAI: ${e.message}`;
         console.error(`🔴 ERROR: ${initializationGeminiError}`, e);
@@ -28,8 +28,8 @@ if (!apiKey) {
 }
 
 
-console.log(`[Gemini Client Export] Status: ${initializationGeminiError ? `🔴 Error: ${initializationGeminiError}` : '🟢 Success'}`);
-console.log(`[Gemini Client Export] Exporting client: ${geminiClient ? 'OK' : 'NULL'}`);
+// console.log(`[Gemini Client Export] Status: ${initializationGeminiError ? `🔴 Error: ${initializationGeminiError}` : '🟢 Success'}`);
+// console.log(`[Gemini Client Export] Exporting client: ${geminiClient ? 'OK' : 'NULL'}`);
 
 
 // Export the client and any initialization error

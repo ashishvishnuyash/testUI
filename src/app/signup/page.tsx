@@ -2,8 +2,8 @@ import SignUpForm from '@/components/auth/SignUpForm';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign Up - TradeChat', // Updated title
-  description: 'Create your account for TradeChat.', // Updated description
+  title: 'Sign Up - StockWhisperer AI', // Updated title
+  description: 'Create your account for StockWhisperer AI.', // Updated description
 };
 
 export default function SignUpPage() {

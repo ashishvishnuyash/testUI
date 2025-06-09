@@ -1,5 +1,12 @@
 'use client';
-
+import { 
+  Dialog, 
+  DialogTrigger, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,8 +25,7 @@ import { SubscriptionDialogContent } from '@/components/settings/SubscriptionDia
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton'; // Import Skeleton
-import VisuallyHidden from '@radix-ui/react-visually-hidden'; // For accessibility
-
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 interface ChatListItem {
   id: string;
   title: string;
@@ -117,7 +123,7 @@ export default function AppSidebar() {
      setLoadingChats(true);
      setErrorChats(null); // Clear previous errors if prerequisites met
      console.log("[ChatSidebar] Setting up Firestore listener for chats...");
-     const chatsRef = collection(db, 'users', user.uid, 'chats');
+     const chatsRef = collection(db!, 'users', user.uid, 'chats');
      const q = query(chatsRef, orderBy('lastMessageTimestamp', 'desc'));
 
      const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -246,7 +252,7 @@ export default function AppSidebar() {
          <div className="flex items-center justify-between p-3 md:p-4 border-b border-sidebar-border">
              <Link href="/" className="flex items-center gap-2 font-serif text-lg md:text-xl font-semibold text-primary">
                <TrendingUp className="h-6 w-6 md:h-7 md:w-7 shrink-0" /> {/* Changed Icon */}
-               <span className="whitespace-nowrap">TradeChat</span> {/* Updated Name */}
+               <span className="whitespace-nowrap">StockWhisperer AI</span> {/* Updated Name */}
              </Link>
               {/* Mobile close button (only shown inside Sheet) */}
              <SheetClose asChild className="md:hidden">
@@ -263,7 +269,7 @@ export default function AppSidebar() {
                 variant="ghost"
                 className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm"
                 onClick={handleCreateChat}
-                disabled={!user || combinedError || !isDbAvailable || isCreatingChat || !auth} // Check all relevant states
+                disabled={!user || !!combinedError || !isDbAvailable || isCreatingChat || !auth} // Check all relevant states
             >
                 {isCreatingChat ? (
                     <Loader2 className="h-4 w-4 md:h-5 md:w-5 shrink-0 animate-spin" />

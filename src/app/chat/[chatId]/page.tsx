@@ -20,7 +20,7 @@ export default function ChatConversationPage() {
   // Combine initialization error with context auth error
   const combinedError = initializationError || contextAuthError;
 
-  console.log(`[ChatConversationPage] chatId: ${chatId}, authLoading: ${authLoading}, user: ${!!user}, combinedError: ${combinedError}`);
+  // console.log(`[ChatConversationPage] chatId: ${chatId}, authLoading: ${authLoading}, user: ${!!user}, combinedError: ${combinedError}`);
 
   // Redirect logic based on auth state and init state
   useEffect(() => {

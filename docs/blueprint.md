@@ -1,4 +1,4 @@
-# **App Name**: AetherChat
+# **App Name**: StockWhisperer AI
 
 ## Core Features:
 
