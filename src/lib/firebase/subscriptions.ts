@@ -39,6 +39,17 @@
     }
   }
 
+  // Helper function to remove undefined values
+  function removeUndefinedFields(obj: any): any {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  }
+
   // Save user subscription to Firestore
   export async function saveUserSubscription(
     userId: string, 
@@ -85,7 +96,8 @@
         originalPlanName: existingData?.originalPlanName || (existingData?.planName !== planName ? existingData?.planName : undefined),
       };
 
-      await setDoc(subscriptionRef, subscriptionData);
+      const cleanedData = removeUndefinedFields(subscriptionData);
+      await setDoc(subscriptionRef, cleanedData);
       console.log('✅ Subscription saved successfully');
     } catch (error) {
       console.error('❌ Error saving subscription:', error);

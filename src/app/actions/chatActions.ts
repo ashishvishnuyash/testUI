@@ -1,7 +1,7 @@
 'use server';
 
 import { geminiClient } from '@/lib/gemini/client';
-import {StockMarketData as StockMarketDataAPI} from '@/lib/gemini/stockapi';
+import {StockMarketData as StockMarketDataAPI , PineScripGeneretor,PythonCodeGenerator,IntradayStockAnalysis} from '@/lib/gemini/stockapi';
 import {
   HarmCategory,
   HarmBlockThreshold,
@@ -24,8 +24,8 @@ import { add } from 'date-fns';
 import { console } from 'inspector';
 // import { useSubscription } from '@/hooks/useSubscription';
 
-const MODEL_NAME = 'gemini-2.0-flash';
-const STOCK_API_ENDPOINT = 'http://localhost:8000/get_report';
+const MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+// const STOCK_API_ENDPOINT = 'http://localhost:8000/get_report';
 
 /* ---------- Types ---------- */
 interface SimpleHistoryMessage {
@@ -145,7 +145,52 @@ export async function generateGeminiChatMessage(
       required: ['query'],
     },
   };
+  const pineScripGeneretor: FunctionDeclaration = {
+    name: 'PineScripGeneretor',
+    description:
+      'Generate Pine Script code for trading strategies based on user input.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text query describing the trading strategy.',
+        },
+      },
+      required: ['query'],
+    },
+  };
 
+  const pythonCodoGenerator: FunctionDeclaration = {
+    name: 'PythonCodeGenerator',
+    description:
+      'Generate Python code for financial analysis or trading strategies based on user input.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text query describing the Python code needed.',
+        },
+      },
+      required: ['query'],
+    },
+  };
+  const intradayStockAnalysis: FunctionDeclaration = {
+    name: 'IntradayStockAnalysis',
+    description:
+      'Generate intraday stock analysis based on user input.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text query describing the intraday stock analysis needed.',
+        },
+      },
+      required: ['query'],
+    },
+  };
   const safetySettings = [
     {
       category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -235,20 +280,66 @@ export async function generateGeminiChatMessage(
 
 // `;
 
+
   try {
     const systemPrompt: Content = {
       role: 'model',
       parts: [
         {
-          text: `you are a financial advisor and your name is Stock AI.
-          Your work is to provide financial advice and stock market data.
-          alwayse use the function financeAndStockMarketData to get stock market data and Report and ask everything you need to know about the stock market.
-          DO NOT provide any financial advice without using the function financeAndStockMarketData.
-          You are not allowed to provide any financial advice without using the function financeAndStockMarketData.
-          while asking quetion form financeAndStockMarketData just make grmmarly currect and don't change the meaning of the question.
+          text: `
+          
+**1. PERSONA: You are Stock AI.**
+
+*   **Identity:** A tool-driven financial data and code generation engine.
+*   **Core Directive:** Your only function is to execute your specialized tools. You do not have opinions, knowledge, or the ability to chat. Your responses are exclusively the output of your tools.
+
+**2. MANDATORY OPERATING PROTOCOL: Follow this non-negotiable sequence for every query.**
+
+*   **Step 1: IMMEDIATE TOOL INVOCATION.**
+    *   The very first thing you do in response to any user query is execute a tool call. There is no other first step.
+    *   Analyze the user's keywords to select the correct tool from the list in Section 4.
+
+*   **Step 2: THE "REASONABLE ASSUMPTION" PRINCIPLE (Handling Vague Requests).**
+    *   You **must not** ask the user for clarification as your first action. This is a critical failure.
+    *   If a user's request is vague, you **must** execute a tool based on a reasonable, common-sense assumption.
+        *   **Vague Strategy Request?** (e.g., "Make a Pine Script strategy for NVDA.") -> **Default Action:** Generate a standard Moving Average Crossover strategy for NVDA.
+        *   **Vague Data Request?** (e.g., "Tell me about GOOG.") -> **Default Action:** Get a general stock summary using \`financeAndStockMarketData\`.
+        *   **Vague Python Request?** (e.g., "Python for AAPL.") -> **Default Action:** Generate a Python script to plot the last year's closing price for AAPL.
+        *   **Vague Intraday Request?** (e.g., "How's TSLA doing?") -> **Default Action:** Run a standard intraday analysis using \`IntradayStockAnalysis\`.
+
+*   **Step 3: PRESENT, STATE ASSUMPTION, AND ASK NEXT.**
+    *   Present the raw output from the tool to the user.
+    *   *After* presenting the output, state the assumption you made. (e.g., "I have generated a standard Moving Average Crossover strategy as a starting point.")
+    *   Finally, ask a specific question to guide the user's next action. (e.g., "Would you like to change the moving average lengths or use a different indicator like RSI?")
+
+**3. CRITICAL RULES & PROHIBITIONS**
+
+1.  **ZERO PRE-TOOL TEXT:** Your response must begin with the tool call. Do not output *any* text, greetings, apologies, or explanations like "I need to use a tool" before the tool has been executed.
+2.  **NEVER ASK, ALWAYS ACT:** Never ask the user to be more specific as a first step. **Act** by running a tool with a default configuration, then allow the user to refine it. The example you provided (\`"I need your query to be more specific..."\`) is a direct violation of this rule.
+3.  **NO SELF-GENERATED CONTENT:** You are forbidden from writing any analysis, code, or financial data yourself. All substantive content must originate from a tool.
+4.  **DISCLAIMER REQUIRED:** Every response that includes data or code must end with the disclaimer: "*This is not financial advice. All data and code are for informational purposes only.*"
+
+**4. TOOL TRIGGERS (Strict Mapping)**
+
+*   **Trigger:** Any request for data, price, fundamentals, or general info.
+    *   **Tool:** \`financeAndStockMarketData\`
+*   **Trigger:** Explicit request for "Pine Script," "trading strategy," or "indicator."
+    *   **Tool:** \`pineScripGeneretor\`
+*   **Trigger:** Explicit request for "Python," "Python code," or "script for analysis."
+    *   **Tool:** \`PythonCodeGenerator\`
+*   **Trigger:** Explicit request for "intraday," "today's performance," or "real-time trend."
+    *   **Tool:** \`IntradayStockAnalysis\`
+
+**5. EXAMPLE of CORRECT vs. INCORRECT Handling**
+
+*   **User Query:** "I need a Pine Script strategy for Microsoft."
+
+*   **INCORRECT RESPONSE (What to avoid):**
+    > "I can help with that, but I need more details. What kind of strategy do you want? What indicators should I use?"
 
 
-          `,
+          
+          `
 
 
 
@@ -270,7 +361,7 @@ export async function generateGeminiChatMessage(
       //   googleSearch: {}
       // },
       {
-        functionDeclarations: [financeAndStockMarketData] 
+        functionDeclarations: [financeAndStockMarketData, pineScripGeneretor ,pythonCodoGenerator,intradayStockAnalysis], 
       }
       ],
       toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } },
@@ -301,9 +392,42 @@ export async function generateGeminiChatMessage(
         const response = await StockMarketDataAPI(query);
         return { response };
       }
+      else if (functionCall?.name === 'PineScripGeneretor') {
+        const args = functionCall.args;
+        const query = args?.query;
+        console.log(functionCall ,query )
+        if (!query) {
+          console.error("Missing query in function call args:", args);
+          return { response: "I couldn't process your request for Pine Script generation. Please provide a specific query." };
+        }
+        const response = await PineScripGeneretor(query);
+        return { response };
+      }
+      else if (functionCall?.name === 'PythonCodeGenerator') {
+        const args = functionCall.args;
+        const query = args?.query;
+        console.log(functionCall ,query )
+        if (!query) {
+          console.error("Missing query in function call args:", args);
+          return { response: "I couldn't process your request for Python code generation. Please provide a specific query." };
+        }
+        const response = await PythonCodeGenerator(query);
+        return { response };
+      }
+      else if (functionCall?.name === 'IntradayStockAnalysis') {
+        const args = functionCall.args;
+        const query = args?.query;
+        console.log(functionCall ,query )
+        if (!query) {
+          console.error("Missing query in function call args:", args);
+          return { response: "I couldn't process your request for intraday stock analysis. Please provide a specific query." };
+        }
+        const response = await IntradayStockAnalysis(query);
+        return { response };
+      }
       return {
         response:
-          'Sorry, I could not process the tool call.',
+          `Sorry, I could not process the tool call.${functionCall.name ? ` Function called: ${functionCall.name}` : ''}`,
       };
 
     }

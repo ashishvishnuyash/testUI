@@ -3,7 +3,7 @@
 const Agent_URL = process.env.Agent_URL
 
 const secrat_key = process.env.Secrat_Key || "0p1MxWQ3CGRfCdHyyObNPt4ie6UHdupv"
-const STOCK_API_ENDPOINT = Agent_URL + '/get_report';
+const STOCK_API_ENDPOINT = Agent_URL;
 
 export async function StockMarketData(query: string | undefined): Promise<string> {
   if (!query) {
@@ -43,7 +43,7 @@ export async function StockMarketData(query: string | undefined): Promise<string
       try {
         // console.log(`[StockMarketData] Attempt ${attempt}/${maxRetries}`);
         
-        const res = await fetch(STOCK_API_ENDPOINT, requestOptions);
+        const res = await fetch(STOCK_API_ENDPOINT + '/get_report', requestOptions);
 
         if (!res.ok) {
           const errorText = await res.text();
@@ -60,28 +60,24 @@ export async function StockMarketData(query: string | undefined): Promise<string
         try {
           data = JSON.parse(responseText);
         } catch (parseError) {
-          console.warn("[StockMarketData] Response is not valid JSON, returning as text");
-          return responseText;
+          console.error(`[StockMarketData] Failed to parse JSON: ${parseError}`);
+          return responseText; // Return raw text if JSON parsing fails
+        }
+
+        // FastAPI returns JSON like { "report": "..." }
+        const report = data?.report || data?.response || responseText;
+        return report;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[StockMarketData] Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
         }
         
-        if (!data.report) {
-          console.warn("[StockMarketData] Response missing 'report' field:", data);
-          return responseText; // Return the raw response if format is unexpected
-        }
-        
-        // console.log(`[StockMarketData] Success on attempt ${attempt}`);
-        return data.report;
-        
-      } catch (err: any) {
-        lastError = err;
-        console.error(`[StockMarketData] Attempt ${attempt} failed:`, err.message);
-        
-        // Wait before retrying
-        if (attempt < maxRetries) {
-          const delay = 1000 * attempt; // 1s, 2s, 3s
-          // console.log(`[StockMarketData] Waiting ${delay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
       }
     }
     
@@ -89,17 +85,217 @@ export async function StockMarketData(query: string | undefined): Promise<string
     
   } catch (err: any) {
     console.error("Stock-API error:", err);
-    
-    // More specific error handling
-    if (err.code === 'UND_ERR_SOCKET') {
-      return `⚠️ Network connection error. The stock API server may be temporarily unavailable. Please try again in a moment.`;
-    }
-    
-    if (err.message?.includes('fetch failed')) {
-      return `⚠️ Failed to connect to stock API server at ${STOCK_API_ENDPOINT}. Please check your internet connection and try again.`;
-    }
-    
-    return `⚠️ Could not fetch market data: ${err.message ?? "unknown error"}. Server: ${STOCK_API_ENDPOINT}`;
+    return `⚠️ Could not fetch market data (${err.message ?? "unknown error"}).`;
   }
 }
-export default StockMarketData;
+
+export async function PineScripGeneretor(query: string | undefined): Promise<string> {
+  if (!query) {
+    console.error("[PineScripGeneretor] Received undefined or empty query");
+    return "⚠️ Error: No query was provided for Pine Script generation.";
+  }
+  
+  // console.log(`[PineScripGeneretor] Sending query: "${query}"`);
+  
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+  myHeaders.append("X-API-Key", secrat_key);
+  
+  const raw = JSON.stringify({
+    "query": query
+  });
+
+  const requestOptions: RequestInit = {
+    method: "POST",
+    headers: myHeaders,
+    body: raw,
+    redirect: "follow",
+    keepalive: true,
+  };
+
+  try {
+    const maxRetries = 3;
+    let lastError: Error = new Error("No attempts made yet");
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(STOCK_API_ENDPOINT + '/generate_pine_script', requestOptions);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`[PineScripGeneretor] Error response: ${errorText}`);
+          throw new Error(`HTTP ${res.status} – ${res.statusText}: ${errorText}`);
+        }
+
+        const responseText = await res.text();
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`[PineScripGeneretor] Failed to parse JSON: ${parseError}`);
+          return responseText;
+        }
+
+        const report = data?.report || data?.response || responseText;
+        return report;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[PineScripGeneretor] Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+    
+    throw lastError;
+    
+  } catch (err: any) {
+    console.error("Pine Script API error:", err);
+    return `⚠️ Could not generate Pine Script (${err.message ?? "unknown error"}).`;
+  }
+}
+
+export async function IntradayStockAnalysis(query: string | undefined): Promise<string> {
+  if (!query) {
+    console.error("[IntradayStockAnalysis] Received undefined or empty query");
+    return "⚠️ Error: No query was provided for intraday stock analysis.";
+  }
+  
+  // console.log(`[IntradayStockAnalysis] Sending query: "${query}"`);
+  
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+  myHeaders.append("X-API-Key", secrat_key);
+  const raw = JSON.stringify({
+    "query": query
+  });
+  const requestOptions: RequestInit = {
+    method: "POST",
+    headers: myHeaders,
+    body: raw,
+    redirect: "follow",
+    keepalive: true,
+  };
+
+  try {
+    const maxRetries = 3;
+    let lastError: Error = new Error("No attempts made yet");
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(STOCK_API_ENDPOINT + '/intraday_stock_analysis', requestOptions);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`[IntradayStockAnalysis] Error response: ${errorText}`);
+          throw new Error(`HTTP ${res.status} – ${res.statusText}: ${errorText}`);
+        }
+
+        const responseText = await res.text();
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`[IntradayStockAnalysis] Failed to parse JSON: ${parseError}`);
+          return responseText;
+        }
+
+        const report = data?.report || data?.response || responseText;
+        return report;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[IntradayStockAnalysis] Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+    
+    throw lastError;
+    
+  } catch (err: any) {
+    console.error("IntradayStockAnalysis ", err);
+    return "⚠️ Could not generate intraday stock analysis (" + (err.message ?? "unknown error") + ").";
+  }
+}
+
+export async function PythonCodeGenerator(query: string | undefined): Promise<string> {
+  if (!query) {
+    console.error("[PythonCodeGenerator] Received undefined or empty query");
+    return "⚠️ Error: No query was provided for Python code generation.";
+  }
+  
+  // console.log(`[PythonCodeGenerator] Sending query: "${query}"`);
+  
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+  myHeaders.append("X-API-Key", secrat_key);
+  
+  const raw = JSON.stringify({
+    "query": query
+  });
+
+  const requestOptions: RequestInit = {
+    method: "POST",
+    headers: myHeaders,
+    body: raw,
+    redirect: "follow",
+    keepalive: true,
+  };
+
+  try {
+    const maxRetries = 3;
+    let lastError: Error = new Error("No attempts made yet");
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(STOCK_API_ENDPOINT + '/generate_python_code', requestOptions);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`[PythonCodeGenerator] Error response: ${errorText}`);
+          throw new Error(`HTTP ${res.status} – ${res.statusText}: ${errorText}`);
+        }
+
+        const responseText = await res.text();
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`[PythonCodeGenerator] Failed to parse JSON: ${parseError}`);
+          return responseText;
+        }
+
+        const report = data?.report || data?.response || responseText;
+        return report;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[PythonCodeGenerator] Attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+    
+    throw lastError;
+    
+  } catch (err: any) {
+    console.error("Python Code Generator error:", err);
+    return `⚠️ Could not generate Python code (${err.message ?? "unknown error"}).`;
+  }
+}

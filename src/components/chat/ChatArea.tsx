@@ -46,6 +46,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   const { subscription, loading: subscriptionLoading } = useSubscription();
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [input, setInput] = useState('');
   const [tokenLimitInfo, setTokenLimitInfo] = useState<TokenLimitInfo | null>(null);
   const [tokenLimitError, setTokenLimitError] = useState<string | null>(null);
@@ -256,6 +257,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
 
     setInput('');
     setIsLoading(true);
+    setIsAnalyzing(true); // Set analyzing state
     setError(null);
 
     const optimisticUserMessage: Omit<MessageData, 'timestamp' | 'id'> = {
@@ -305,9 +307,24 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       });
       // console.log(`[ChatArea] Updated chat metadata for chatId ${chatId}.`);
 
+      // Add analyzing message temporarily
+      const tempAnalyzingMessageId = `temp-analyzing-${Date.now()}`;
+      const analyzingMessage: MessageData = {
+        id: tempAnalyzingMessageId,
+        role: 'model',
+        content: [{ text: '' }], // Empty content for analyzing state
+        timestamp: null,
+      };
+      setMessages(prev => [...prev, analyzingMessage]);
+      scrollToBottom('smooth');
+
       // console.log('[ChatArea] Calling Gemini AI action...');
       const aiInput = { prompt: currentInput, history: historyForAI };
       const aiOutput = await generateGeminiChatMessage(aiInput);
+
+      // Remove analyzing message
+      setMessages(prev => prev.filter(msg => msg.id !== tempAnalyzingMessageId));
+      setIsAnalyzing(false);
 
       if (aiOutput.response) {
         const aiMessagePayload = {
@@ -357,12 +374,13 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       console.error('[ChatArea] Error sending message or getting AI response:', err);
       const errorMsg = `Failed to process message: ${err instanceof Error ? err.message : 'Unknown error'}`;
       setError(errorMsg);
-      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessageId));
+      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessageId || msg.id.startsWith('temp-analyzing')));
       if (!userDocRefId) {
         setInput(currentInput);
       }
     } finally {
       setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -486,10 +504,15 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
             </div>
           )}
           {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} currentUser={user} />
+            <ChatMessage 
+              key={message.id} 
+              message={message} 
+              currentUser={user} 
+              isAnalyzing={isAnalyzing && message.id.startsWith('temp-analyzing')}
+            />
           ))}
-          {/* Show thinking indicator only while waiting for AI */}
-          {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && !error && (
+          {/* Show analyzing indicator when AI is processing */}
+          {isAnalyzing && messages.length > 0 && messages[messages.length - 1].role === 'user' && !error && (
             <div className="flex justify-start items-start gap-3 lg:gap-4">
               <UIAvatar className="h-8 w-8 lg:h-10 lg:w-10 border-2 border-primary shadow-md flex-shrink-0">
                 <AvatarFallback className="bg-primary/10">
@@ -498,10 +521,18 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
               </UIAvatar>
               <div className="bg-card text-card-foreground p-3 lg:p-4 rounded-lg rounded-bl-none shadow-md max-w-[85%] lg:max-w-[80%] animate-pulse">
                 <div className="space-y-2">
-                  <div className="h-3 bg-muted rounded w-20"></div>
-                  <div className="h-3 bg-muted rounded w-16"></div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                    </div>
+                    <span className="text-primary font-medium text-sm lg:text-base">Analyzing...</span>
+                  </div>
+                  <p className="text-xs lg:text-sm text-muted-foreground">
+                    StockWhisperer AI is processing your request and gathering insights...
+                  </p>
                 </div>
-                <p className="text-xs lg:text-sm mt-2 text-muted-foreground">StockWhisperer AI is thinking...</p>
               </div>
             </div>
           )}
@@ -534,7 +565,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
           disabled={inputDisabled || !input.trim()}
           aria-label="Send message"
         >
-          {isLoading ? ( // Show spinner only during AI response loading
+          {isLoading ? (
              <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
           ) : (
             <SendHorizonal className="h-5 w-5 lg:h-6 lg:w-6" />
