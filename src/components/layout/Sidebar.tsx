@@ -407,7 +407,7 @@ export default function AppSidebar() {
                                </DialogTitle>
                                <DialogDescription className="text-base">Choose the plan that best suits your needs.</DialogDescription>
                             </DialogHeader>
-                            <SubscriptionDialogContent />
+                            <SubscriptionDialogContent  />
                        </DialogContent>
                    </Dialog>
 

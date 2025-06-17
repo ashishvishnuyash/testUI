@@ -59,7 +59,7 @@ const plans = [
 ];
 
 // Razorpay configuration
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_732qsLZ7cVKYCW'; // Replace with your actual Razorpay key ID 
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_live_KVYm7fTg5kCUlQ'; // Replace with your actual Razorpay key ID 
 
 export function SubscriptionDialogContent() {
   const { user, loading: authLoading, authError } = useAuth();

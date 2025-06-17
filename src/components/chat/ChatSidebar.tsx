@@ -601,7 +601,7 @@ export default function ChatSidebar() {
               }
             </DialogDescription>
           </DialogHeader>
-          <SubscriptionDialogContent />
+          <SubscriptionDialogContent  />
         </DialogContent>
       </Dialog>
 
@@ -635,7 +635,7 @@ export default function ChatSidebar() {
                              </DialogTitle>
                              <DialogDescription className="text-base">Choose the plan that best suits your needs.</DialogDescription>
                          </DialogHeader>
-                         <SubscriptionDialogContent />
+                         <SubscriptionDialogContent  />
                      </DialogContent>
                  </Dialog>
 
