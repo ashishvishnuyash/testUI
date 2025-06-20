@@ -299,3 +299,74 @@ export async function PythonCodeGenerator(query: string | undefined): Promise<st
     return `⚠️ Could not generate Python code (${err.message ?? "unknown error"}).`;
   }
 }
+
+
+export async function StockMarketQAndA(query: string | undefined): Promise<string> {
+  if (!query) {
+    console.error("[StockMarketQAndA] Received undefined or empty query");
+    return "⚠️ Error: No query was provided for stock market Q&A.";
+  }
+  
+  // console.log(`[StockMarketQAndA] Sending query: "${query}"`); 
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+  myHeaders.append("X-API-Key", secrat_key);
+  
+  const raw = JSON.stringify({
+    "query": query
+  });
+
+  const requestOptions: RequestInit = {
+    method: "POST",
+    headers: myHeaders,
+    body: raw,
+    redirect: "follow",
+    keepalive: true,
+  };
+
+  try {
+    const maxRetries = 3;
+    let lastError: Error = new Error("No attempts made yet");
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(STOCK_API_ENDPOINT + '/stock_market_qa', requestOptions);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`[StockMarketQAndA] Error response: ${errorText}`);
+          throw new Error(`HTTP ${res.status} – ${res.statusText}: ${errorText}`);
+        }
+
+        const responseText = await res.text();
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`[StockMarketQAndA] Failed to parse JSON: ${parseError}`);
+          return responseText;
+        }
+
+        const report = data?.report || data?.response || responseText;
+        return report;
+
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[StockMarketQAndA] Attempt ${attempt} failed:`, error);
+
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+
+    throw lastError;
+
+  } catch (err: any) {
+    console.error("Stock Market Q&A error:", err);
+    return `⚠️ Could not generate stock market Q&A (${err.message ?? "unknown error"}).`;
+  }
+}

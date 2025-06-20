@@ -22,6 +22,10 @@ import {
   Lock,
   Crown,
   Gem,
+  Code2Icon,
+  Code,
+  Paperclip,
+  ChartAreaIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -211,8 +215,7 @@ export default function LandingPageEnhanced({
               variants={fadeUp}
               className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed"
             >
-              Experience premium AI conversations with sophisticated responses, elegant design, 
-              and exclusive features. Where luxury meets artificial intelligence.
+             Your Premium AI Co-Pilot for Smarter Market Insights.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row">
@@ -385,42 +388,42 @@ export default function LandingPageEnhanced({
                 title: "Premium AI Models",
                 description: "Access to the most advanced AI models with sophisticated reasoning capabilities",
                 icon: Brain,
-                image: "/illustrations/Brain.png",
+                image: "/illustrations/models.png",
                 gradient: "from-[#FFD700]/20 to-[#50C878]/20"
               },
               {
-                title: "Elegant Interface",
-                description: "Beautifully crafted user experience with attention to every detail",
+                title: "Real-Time Insights",
+                description: "Get real-time insights and analysis of your conversations",
                 icon: Feather,
-                image: "/illustrations/text.png",
+                image: "/illustrations/realtime.png",
                 gradient: "from-[#50C878]/20 to-[#FFD700]/20"
               },
               {
-                title: "Enterprise Security",
-                description: "Bank-level security with Firebase authentication and data encryption",
-                icon: Lock,
-                image: "/illustrations/lock.png",
+                title: "1 minute ticker",
+                description: "Stay updated with real-time market data and insights",
+                icon: ChartAreaIcon,
+                image: "/illustrations/1min.png",
                 gradient: "from-[#333333]/20 to-[#FFD700]/20"
               },
               {
-                title: "Conversation History",
-                description: "Never lose important conversations with intelligent search and organization",
-                icon: MessageCircle,
-                image: "/illustrations/search.png",
+                title: "Pine Script Generator",
+                description: "Generate Pine Script code snippets effortlessly",
+                icon: Code2Icon,
+                image: "/illustrations/pinecode.png",
                 gradient: "from-[#FFD700]/20 to-[#333333]/20"
               },
               {
                 title: "Premium Support",
                 description: "Priority customer support with dedicated assistance for premium users",
                 icon: Users,
-                image: "/illustrations/support.png",
+                image: "/illustrations/csupport.png",
                 gradient: "from-[#50C878]/20 to-[#333333]/20"
               },
               {
-                title: "Advanced Features",
-                description: "Exclusive features and early access to new capabilities",
-                icon: Zap,
-                image: "/illustrations/thunder.png",
+                title: "Market and Intraday Reports",
+                description: "Receive detailed market and intraday reports tailored to your interests and preferences",
+                icon: Paperclip,
+                image: "/illustrations/report.png",
                 gradient: "from-[#333333]/20 to-[#50C878]/20"
               },
             ].map((benefit, i) => (
@@ -708,7 +711,7 @@ export default function LandingPageEnhanced({
                 'Priority support'
 
                 ],
-                popular: true,
+                popular: false,
                 cta: "Start Gold",
                 gradient: "from-[#FFD700]/20 to-[#50C878]/20",
                 borderColor: "border-[#FFD700]/50"
@@ -726,7 +729,7 @@ export default function LandingPageEnhanced({
                   'Premium support',
                   'Early access to new features'
                 ],
-                popular: false,
+                popular: true,
                 cta: "Go Diamond",
                 gradient: "from-purple-500/20 to-[#FFD700]/20",
                 borderColor: "border-purple-500/50"
@@ -919,6 +922,7 @@ export default function LandingPageEnhanced({
           </motion.div>
         </div>
       </section>
+      
 
       
     </div>

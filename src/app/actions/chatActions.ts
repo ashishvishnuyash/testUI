@@ -1,7 +1,7 @@
 'use server';
 
 import { geminiClient } from '@/lib/gemini/client';
-import {StockMarketData as StockMarketDataAPI , PineScripGeneretor,PythonCodeGenerator,IntradayStockAnalysis} from '@/lib/gemini/stockapi';
+import {StockMarketData as StockMarketDataAPI , PineScripGeneretor,PythonCodeGenerator,IntradayStockAnalysis,StockMarketQAndA} from '@/lib/gemini/stockapi';
 import {
   HarmCategory,
   HarmBlockThreshold,
@@ -191,6 +191,22 @@ export async function generateGeminiChatMessage(
       required: ['query'],
     },
   };
+
+  const stockMarketQAndA: FunctionDeclaration = {
+    name: 'StockMarketQAndA',
+    description:
+      'provide answers to stock market related questions based on user input. This can include stock recommendations, market trends, and general financial advice.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text query describing the stock market question.',
+        },
+      },
+      required: ['query'],
+    },
+  };
   const safetySettings = [
     {
       category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -306,6 +322,7 @@ export async function generateGeminiChatMessage(
         *   **Vague Data Request?** (e.g., "Tell me about GOOG.") -> **Default Action:** Get a general stock summary using \`financeAndStockMarketData\`.
         *   **Vague Python Request?** (e.g., "Python for AAPL.") -> **Default Action:** Generate a Python script to plot the last year's closing price for AAPL.
         *   **Vague Intraday Request?** (e.g., "How's TSLA doing?") -> **Default Action:** Run a standard intraday analysis using \`IntradayStockAnalysis\`.
+        * **Vague Q&A Request?** (e.g., "Give me name of 5 stocks for swing trading?") -> **Default Action:** Run a standard Q&A using \`StockMarketQAndA\`.
 
 *   **Step 3: PRESENT, STATE ASSUMPTION, AND ASK NEXT.**
     *   Present the raw output from the tool to the user.
@@ -329,6 +346,8 @@ export async function generateGeminiChatMessage(
     *   **Tool:** \`PythonCodeGenerator\`
 *   **Trigger:** Explicit request for "intraday," "today's performance," or "real-time trend."
     *   **Tool:** \`IntradayStockAnalysis\`
+*   **Trigger:** Explicit request for "Q&A," "swing trading stocks," or "top stocks."
+    *   **Tool:** \`StockMarketQAndA\`
 
 **5. EXAMPLE of CORRECT vs. INCORRECT Handling**
 
@@ -336,6 +355,7 @@ export async function generateGeminiChatMessage(
 
 *   **INCORRECT RESPONSE (What to avoid):**
     > "I can help with that, but I need more details. What kind of strategy do you want? What indicators should I use?"
+
 
 
           
@@ -361,7 +381,7 @@ export async function generateGeminiChatMessage(
       //   googleSearch: {}
       // },
       {
-        functionDeclarations: [financeAndStockMarketData, pineScripGeneretor ,pythonCodoGenerator,intradayStockAnalysis], 
+        functionDeclarations: [financeAndStockMarketData, pineScripGeneretor ,pythonCodoGenerator,intradayStockAnalysis ,stockMarketQAndA], 
       }
       ],
       toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.AUTO } },
@@ -423,6 +443,17 @@ export async function generateGeminiChatMessage(
           return { response: "I couldn't process your request for intraday stock analysis. Please provide a specific query." };
         }
         const response = await IntradayStockAnalysis(query);
+        return { response };
+      }
+      else if (functionCall?.name === 'StockMarketQAndA') {
+        const args = functionCall.args;
+        const query = args?.query;
+        console.log(functionCall ,query )
+        if (!query) {
+          console.error("Missing query in function call args:", args);
+          return { response: "I couldn't process your request for stock market Q&A. Please provide a specific query." };
+        }
+        const response = await StockMarketQAndA(query);
         return { response };
       }
       return {
