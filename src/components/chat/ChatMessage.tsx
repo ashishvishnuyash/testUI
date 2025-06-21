@@ -9,6 +9,7 @@ import type { User } from 'firebase/auth';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import Image from 'next/image';
 
 interface ChatMessageProps {
   message: MessageData;
@@ -21,8 +22,8 @@ export default function ChatMessage({ message, currentUser, isAnalyzing = false 
   const isModel = message.role === 'model';
   const isOptimistic = message.id.startsWith('temp-');
 
-  // Combine text parts into a single string for display
-  const messageText = message.content.map(part => part.text).join('\n');
+  // Combine text parts into a single string for Markdown rendering for model messages
+  const modelMessageText = isModel ? message.content.map(part => part.text).filter(Boolean).join('\n\n') : '';
 
   // Determine alignment and styling based on sender
   const alignmentClass = isUser ? 'justify-end' : 'justify-start';
@@ -145,12 +146,32 @@ export default function ChatMessage({ message, currentUser, isAnalyzing = false 
                 )}
                 components={markdownComponents}
               >
-                {messageText}
+                {modelMessageText}
               </ReactMarkdown>
             )
           ) : (
-            // Render user message as plain text with proper line breaks
-            <p className="whitespace-pre-wrap break-words leading-relaxed">{messageText}</p>
+            // Render user message, which can have text and an image
+            <div className="space-y-2">
+              {message.content.map((part, index) => (
+                <div key={index}>
+                  {part.text && (
+                    <p className="whitespace-pre-wrap break-words leading-relaxed">{part.text}</p>
+                  )}
+                  {part.imageUrl && (
+                    <div className="relative mt-2 w-full max-w-xs h-auto aspect-[4/3] rounded-lg overflow-hidden border">
+                      <Image
+                        src={part.imageUrl}
+                        alt="User upload"
+                        layout="fill"
+                        objectFit="cover"
+                        className="transition-opacity duration-300"
+                        onLoadingComplete={(img) => img.classList.remove('opacity-0')}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
           
           {/* Timestamp */}

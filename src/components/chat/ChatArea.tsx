@@ -10,9 +10,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { SendHorizonal, Loader2, BrainCircuit, User, AlertTriangle, DatabaseZap, Crown, Zap } from 'lucide-react';
+import { SendHorizonal, Loader2, BrainCircuit, User, AlertTriangle, DatabaseZap, Crown, Zap, Paperclip, X } from 'lucide-react';
 import ChatMessage from './ChatMessage';
-import type { MessageData, SimpleHistoryMessage } from '@/lib/types';
+import type { MessageData, SimpleHistoryMessage, MessageContentPart } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Avatar as UIAvatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
@@ -26,6 +26,7 @@ import {
 import { useSubscription } from '@/hooks/useSubscription';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import Image from 'next/image';
 
 interface ChatAreaProps {
   chatId: string;
@@ -48,6 +49,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [input, setInput] = useState('');
+  const [attachment, setAttachment] = useState<{ file: File; url: string; type: string } | null>(null);
   const [tokenLimitInfo, setTokenLimitInfo] = useState<TokenLimitInfo | null>(null);
   const [tokenLimitError, setTokenLimitError] = useState<string | null>(null);
   
@@ -56,6 +58,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   const combinedError = initializationError || contextAuthError || (!isDbAvailable ? "Database service unavailable." : null) || (!isAuthAvailable ? "Authentication service unavailable." : null);
   const [error, setError] = useState<string | null>(combinedError);
   const scrollAreaViewportRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isMounted = useRef(false);
 
   // --- Scrolling ---
@@ -101,6 +104,39 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
 
     checkUserTokenLimit();
   }, [user, subscription, subscriptionLoading]);
+
+  // --- File Handling ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Only image files are currently supported.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError("File size cannot exceed 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const dataUrl = loadEvent.target?.result as string;
+        setAttachment({
+          file: file,
+          url: dataUrl,
+          type: file.type,
+        });
+        setError(null);
+      };
+      reader.onerror = () => {
+        setError("Failed to read the file.");
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset file input to allow selecting the same file again
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
 
   // --- Firestore Listener & Initial Load ---
   useEffect(() => {
@@ -157,17 +193,20 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       const loadedMessages: MessageData[] = querySnapshot.docs
         .map((docSnap) => {
           const data = docSnap.data();
-          if (data && (data.role === 'user' || data.role === 'model' || data.role === 'system') && Array.isArray(data.content) && data.content.every(c => typeof c.text === 'string') && (data.timestamp instanceof Timestamp || data.timestamp === null) ) {
-            return {
-              id: docSnap.id,
-              role: data.role,
-              content: data.content,
-              timestamp: data.timestamp instanceof Timestamp ? data.timestamp : null,
-            };
-          } else {
-            console.warn(`[ChatArea Listener] Skipping invalid message data for doc ${docSnap.id}:`, data);
-            return null;
+          if (data && (data.role === 'user' || data.role === 'model' || data.role === 'system') && Array.isArray(data.content) && (data.timestamp instanceof Timestamp || data.timestamp === null) ) {
+            // Basic validation for content parts
+            const isValidContent = data.content.every((c: any) => (typeof c.text === 'string' || typeof c.text === 'undefined') && (typeof c.imageUrl === 'string' || typeof c.imageUrl === 'undefined'));
+            if (isValidContent) {
+              return {
+                id: docSnap.id,
+                role: data.role,
+                content: data.content,
+                timestamp: data.timestamp instanceof Timestamp ? data.timestamp : null,
+              };
+            }
           }
+          console.warn(`[ChatArea Listener] Skipping invalid message data for doc ${docSnap.id}:`, data);
+          return null;
         })
         .filter((msg): msg is MessageData => msg !== null);
 
@@ -243,6 +282,11 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       console.warn('[ChatArea Send] Send prevented:', { currentInput, isLoading });
       return;
     }
+    // A prompt is required even with an attachment
+    if (!currentInput.trim() && attachment) {
+      setError("Please provide a prompt to go with your attachment.");
+      return;
+    }
 
     if (!tokenLimitInfo?.isUnlimited && tokenLimitInfo && !tokenLimitInfo.canProceed) {
       setError(`Token limit reached. You've used ${tokenLimitInfo.currentUsage}/${tokenLimitInfo.limit} tokens this month. Please upgrade your subscription to continue.`);
@@ -259,17 +303,25 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
     setIsLoading(true);
     setIsAnalyzing(true); // Set analyzing state
     setError(null);
+    setAttachment(null); // Clear attachment immediately when sending
+
+    const optimisticUserMessageContent: MessageContentPart[] = [{ text: currentInput }];
+    if (attachment) {
+      optimisticUserMessageContent.push({ imageUrl: attachment.url });
+    }
 
     const optimisticUserMessage: Omit<MessageData, 'timestamp' | 'id'> = {
       role: 'user',
-      content: [{ text: currentInput }],
+      content: optimisticUserMessageContent,
     };
 
     const historyForAI: SimpleHistoryMessage[] = messages
       .filter(msg => msg.role === 'user' || msg.role === 'model')
       .map(msg => ({
         role: msg.role as 'user' | 'model',
-        content: Array.isArray(msg.content) ? msg.content.map(part => ({ text: part.text || '' })) : [{ text: String(msg.content) }],
+        content: msg.content
+          .filter(part => typeof part.text === 'string') // Only include text parts in history
+          .map(part => ({ text: part.text! })),
       }));
 
     const tempUserMessageId = `temp-user-${Date.now()}`;
@@ -319,7 +371,11 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       scrollToBottom('smooth');
 
       // console.log('[ChatArea] Calling Gemini AI action...');
-      const aiInput = { prompt: currentInput, history: historyForAI };
+      const aiInput = { 
+        prompt: currentInput, 
+        history: historyForAI,
+        attachment: attachment ? { base64Data: attachment.url, mimeType: attachment.type } : undefined,
+      };
       const aiOutput = await generateGeminiChatMessage(aiInput);
 
       // Remove analyzing message
@@ -440,11 +496,13 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   };
 
   // --- Render ---
-  const inputDisabled = isLoading || !!combinedError || (tokenLimitInfo && !tokenLimitInfo.canProceed && !tokenLimitInfo.isUnlimited);
+  const inputDisabled = Boolean(isLoading || !!combinedError || (tokenLimitInfo && !tokenLimitInfo.canProceed && !tokenLimitInfo.isUnlimited));
   const placeholderText = tokenLimitInfo && !tokenLimitInfo.canProceed && !tokenLimitInfo.isUnlimited 
     ? "Token limit reached - upgrade to continue..." 
     : inputDisabled 
     ? "Chat unavailable..." 
+    : attachment 
+    ? "Add a prompt for your image..."
     : "Ask StockWhisperer AI anything...";
 
   return (
@@ -477,7 +535,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
 
       {/* Scrollable Message Area */}
       <ScrollArea className="flex-1 overflow-y-auto" viewportRef={scrollAreaViewportRef}>
-        <div className="p-3 lg:p-6 space-y-4 lg:space-y-6 pb-safe">
+        <div className="p-2 sm:p-3 lg:p-6 space-y-3 sm:space-y-4 lg:space-y-6 pb-safe">
           {messages.length === 0 && isLoading && !error && (
             <div className="flex justify-center items-center h-full py-12 lg:py-20">
               <Loader2 className="h-6 w-6 lg:h-8 lg:w-8 animate-spin text-primary" />
@@ -540,38 +598,73 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
       </ScrollArea>
 
       {/* Input Form Area */}
-      <form onSubmit={handleSendMessage} className="flex items-end gap-2 lg:gap-3 border-t p-3 lg:p-4 border-border mt-auto bg-background pb-safe">
-        <div className="flex-1 min-w-0">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={placeholderText}
-            className={cn(
-              "w-full bg-background focus:ring-2 focus:ring-accent focus:ring-offset-0 disabled:cursor-not-allowed text-sm lg:text-base min-h-[44px] lg:min-h-[48px] px-3 lg:px-4",
-              inputDisabled && "opacity-60"
-            )}
-            disabled={Boolean(inputDisabled)}
-            aria-label="Chat input"
-            autoComplete="off"
+      <div className="border-t p-2 sm:p-3 lg:p-4 border-border mt-auto bg-background pb-safe sticky bottom-0 z-20">
+        {attachment && (
+          <div className="relative w-24 h-24 mb-2 border rounded-md p-1">
+            <Image src={attachment.url} alt="Attachment preview" layout="fill" objectFit="cover" className="rounded-md" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-0 right-0 h-6 w-6 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              onClick={() => setAttachment(null)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Remove attachment</span>
+            </Button>
+          </div>
+        )}
+        <form onSubmit={handleSendMessage} className="flex items-end gap-2 lg:gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 h-11 w-11 lg:h-12 lg:w-12"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!!inputDisabled}
+            aria-label="Attach file"
+          >
+            <Paperclip className="h-5 w-5 lg:h-6 lg:w-6" />
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/*"
+            disabled={!!inputDisabled}
           />
-        </div>
-        <Button
-          type="submit"
-          size="icon"
-          className={cn(
-            "bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-md relative shrink-0 h-11 w-11 lg:h-12 lg:w-12",
-            inputDisabled && "opacity-60 cursor-not-allowed"
-          )}
-          disabled={inputDisabled || !input.trim()}
-          aria-label="Send message"
-        >
-          {isLoading ? (
+          <div className="flex-1 min-w-0">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={placeholderText}
+              className={cn(
+                "w-full bg-background focus:ring-2 focus:ring-accent focus:ring-offset-0 disabled:cursor-not-allowed text-sm lg:text-base min-h-[44px] lg:min-h-[48px] px-3 lg:px-4",
+                inputDisabled && "opacity-60"
+              )}
+              disabled={Boolean(inputDisabled)}
+              aria-label="Chat input"
+              autoComplete="off"
+            />
+          </div>
+          <Button
+            type="submit"
+            size="icon"
+            className={cn(
+              "bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-md relative shrink-0 h-11 w-11 lg:h-12 lg:w-12",
+              inputDisabled && "opacity-60 cursor-not-allowed"
+            )}
+            disabled={inputDisabled || (!input.trim() && !attachment)}
+            aria-label="Send message"
+          >
+            {isLoading ? (
              <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
-          ) : (
-            <SendHorizonal className="h-5 w-5 lg:h-6 lg:w-6" />
-          )}
-        </Button>
-      </form>
+            ) : (
+              <SendHorizonal className="h-5 w-5 lg:h-6 lg:w-6" />
+            )}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

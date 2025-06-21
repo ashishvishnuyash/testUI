@@ -24,9 +24,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 
 interface ChatListItem {
-
-
-
   id: string;
   title: string;
   lastMessageTimestamp: Timestamp | null;
@@ -34,35 +31,34 @@ interface ChatListItem {
 
 // Helper function to delete subcollection (requires Cloud Function for production)
 async function deleteChatMessages(userId: string, chatId: string) {
-
-
-
-
-
-    if (!db) {
-        console.error("Firestore service is not available for deleting messages.");
-        toast({ title: "Error", description: "Database service unavailable.", variant: "destructive"});
-        return false;
-    }
-    try {
-        const messagesRef = collection(db, 'users', userId, 'chats', chatId, 'messages');
-        const q = query(messagesRef);
-        const snapshot = await getDocs(q);
-        const deletePromises: Promise<void>[] = [];
-        snapshot.forEach((doc) => {
-            deletePromises.push(deleteDoc(doc.ref));
-        });
-        await Promise.all(deletePromises);
-        // console.log(`Subcollection 'messages' for chat ${chatId} deleted (client-side attempt).`);
-        return true;
-    } catch (error) {
-        console.error(`Error deleting subcollection messages for chat ${chatId}:`, error);
-        toast({ title: "Deletion Error", description: "Could not delete chat messages.", variant: "destructive" });
-        return false;
-    }
+  if (!db) {
+    console.error("Firestore service is not available for deleting messages.");
+    toast({ title: "Error", description: "Database service unavailable.", variant: "destructive"});
+    return false;
+  }
+  try {
+    const messagesRef = collection(db, 'users', userId, 'chats', chatId, 'messages');
+    const q = query(messagesRef);
+    const snapshot = await getDocs(q);
+    const deletePromises: Promise<void>[] = [];
+    snapshot.forEach((doc) => {
+      deletePromises.push(deleteDoc(doc.ref));
+    });
+    await Promise.all(deletePromises);
+    // console.log(`Subcollection 'messages' for chat ${chatId} deleted (client-side attempt).`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting subcollection messages for chat ${chatId}:`, error);
+    toast({ title: "Deletion Error", description: "Could not delete chat messages.", variant: "destructive" });
+    return false;
+  }
 }
 
-export default function ChatSidebar() {
+interface ChatSidebarProps {
+  onNavigate?: () => void;
+}
+
+export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
   const { user, loading: authLoading, authError } = useAuth();
   const { 
     currentPlan, 
@@ -82,8 +78,6 @@ export default function ChatSidebar() {
     forceCheckExpiration
   } = useSubscription();
   
-
-
   const router = useRouter();
   const pathname = usePathname();
   const [chats, setChats] = useState<ChatListItem[]>([]);
@@ -94,16 +88,12 @@ export default function ChatSidebar() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
 
-
-
   const isDbAvailable = !!db;
   const combinedError = authError || errorChats;
 
   // Check if user has reached chat limit based on EFFECTIVE plan
   const hasReachedChatLimit = limits.maxChats !== -1 && chats.length >= limits.maxChats;
   
-
-
   // Block chat creation if: expired subscription OR reached limit OR was downgraded
   const shouldBlockChatCreation = isExpired || hasReachedChatLimit || (wasDowngraded && effectivePlan === 'free_tier');
   // Manual subscription refresh
@@ -527,6 +517,7 @@ export default function ChatSidebar() {
                                          ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
                                          : 'text-sidebar-foreground hover:text-sidebar-accent-foreground'
                                  )}
+                                 onClick={() => { if (onNavigate) onNavigate(); }}
                              >
                                  <span className="truncate flex-1">{chat.title}</span>
                              </Link>
