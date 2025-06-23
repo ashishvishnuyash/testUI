@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,9 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { collection, addDoc, deleteDoc, doc, getDocs, query, orderBy, onSnapshot, where, limit, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, getDocs, query, orderBy, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
 
-import { MessageSquarePlus, LogOut, Crown, Settings, TrendingUp, History, Loader2, Trash2, AlertTriangle, Lock, Clock, Calendar, RefreshCw } from 'lucide-react';
+import { MessageSquarePlus, LogOut, Crown, Settings, TrendingUp, History, Loader2, Trash2, AlertTriangle, Lock, Clock, Calendar, RefreshCw, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -29,8 +29,7 @@ interface ChatListItem {
   lastMessageTimestamp: Timestamp | null;
 }
 
-// Helper function to delete subcollection (requires Cloud Function for production)
-async function deleteChatMessages(userId: string, chatId: string) {
+async function deleteChatMessages(userId: string, chatId:string) {
   if (!db) {
     console.error("Firestore service is not available for deleting messages.");
     toast({ title: "Error", description: "Database service unavailable.", variant: "destructive"});
@@ -45,7 +44,6 @@ async function deleteChatMessages(userId: string, chatId: string) {
       deletePromises.push(deleteDoc(doc.ref));
     });
     await Promise.all(deletePromises);
-    // console.log(`Subcollection 'messages' for chat ${chatId} deleted (client-side attempt).`);
     return true;
   } catch (error) {
     console.error(`Error deleting subcollection messages for chat ${chatId}:`, error);
@@ -56,12 +54,13 @@ async function deleteChatMessages(userId: string, chatId: string) {
 
 interface ChatSidebarProps {
   onNavigate?: () => void;
+  isMobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
 }
 
-export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
+export default function ChatSidebar({ onNavigate, isMobileOpen, setMobileOpen }: ChatSidebarProps) {
   const { user, loading: authLoading, authError } = useAuth();
   const { 
-    currentPlan, 
     limits, 
     loading: subLoading, 
     error: subError,
@@ -74,7 +73,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     lastChecked,
     originalPlan,
     originalPlanName,
-    refreshSubscription,
     forceCheckExpiration
   } = useSubscription();
   
@@ -91,12 +89,10 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
   const isDbAvailable = !!db;
   const combinedError = authError || errorChats;
 
-  // Check if user has reached chat limit based on EFFECTIVE plan
   const hasReachedChatLimit = limits.maxChats !== -1 && chats.length >= limits.maxChats;
   
-  // Block chat creation if: expired subscription OR reached limit OR was downgraded
   const shouldBlockChatCreation = isExpired || hasReachedChatLimit || (wasDowngraded && effectivePlan === 'free_tier');
-  // Manual subscription refresh
+
   const handleRefreshSubscription = async () => {
     setIsRefreshingSubscription(true);
     try {
@@ -115,7 +111,7 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
       setIsRefreshingSubscription(false);
     }
   };
-  // --- Logout ---
+
   const handleLogout = async () => {
      if (!auth) {
         console.error("Logout Error: Firebase Auth service is not initialized.");
@@ -124,7 +120,7 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
       }
     try {
       await signOut(auth);
-      router.push('/login'); // Redirect to login after logout
+      router.push('/login');
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
     } catch (error) {
       console.error('Logout Error:', error);
@@ -132,7 +128,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     }
   };
 
-  // --- Fetch Chats ---
   useEffect(() => {
     if (!user || !isDbAvailable || authError) {
       setChats([]);
@@ -145,13 +140,11 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
 
     setLoadingChats(true);
     setErrorChats(null);
-    // console.log("[ChatSidebar] Setting up Firestore listener for chats...");
 
     const chatsRef = collection(db!, 'users', user.uid, 'chats');
     const q = query(chatsRef, orderBy('lastMessageTimestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      // console.log(`[ChatSidebar] Chats snapshot received with ${querySnapshot.docs.length} docs.`);
       const loadedChats: ChatListItem[] = querySnapshot.docs.map((docSnapshot) => {
          const data = docSnapshot.data();
          if (data && typeof data.title === 'string' && (data.lastMessageTimestamp === null || data.lastMessageTimestamp instanceof Timestamp)) {
@@ -176,12 +169,10 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     });
 
     return () => {
-      //  console.log("[ChatSidebar] Unsubscribing Firestore listener.");
        unsubscribe();
    };
   }, [user, isDbAvailable, authError]);
 
-  // --- Delete Chat ---
   const handleDeleteChat = async (chatIdToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -191,7 +182,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     };
 
     setDeletingChatId(chatIdToDelete);
-    // console.log(`Attempting to delete chat: ${chatIdToDelete}`);
 
     try {
       const messagesDeleted = await deleteChatMessages(user.uid, chatIdToDelete);
@@ -223,7 +213,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     }
   };
 
-  // --- Create Chat ---
    const handleCreateChat = async () => {
        if (!user || !isDbAvailable || isCreatingChat) {
            if (!isDbAvailable) toast({ title: "Error", description: "Database service unavailable.", variant: "destructive" });
@@ -231,7 +220,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
            return;
        }
 
-       // Check if subscription expired or chat limit reached
        if (shouldBlockChatCreation) {
            setShowUpgradeDialog(true);
              
@@ -267,9 +255,9 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                createdAt: serverTimestamp(),
                lastMessageTimestamp: serverTimestamp(),
            });
-          //  console.log(`[ChatSidebar] New chat created with ID: ${newChatDoc.id}`);
            toast({ title: "Chat Created", description: "New chat session started." });
            router.push(`/chat/${newChatDoc.id}`);
+           if (onNavigate) onNavigate();
        } catch (error) {
            console.error("[ChatSidebar] Error creating new chat:", error);
            setErrorChats(`Failed to create chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -279,10 +267,8 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
        }
    };
 
-  // Determine if a chat link is active
   const isActive = (chatId: string) => pathname === `/chat/${chatId}`;
 
-  // Get plan display name
   const getPlanDisplayName = (planId: string) => {
     const planNames: Record<string, string> = {
       'free_tier': 'Free Tier',
@@ -292,7 +278,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
     return planNames[planId] || planId;
   };
 
-  // Format expiration info
   const getExpirationInfo = () => {
     if (!subscription?.endDate) return null;
       
@@ -321,7 +306,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
 
   const expirationInfo = getExpirationInfo();
 
-  // Get the reason for blocking chat creation
   const getBlockReason = () => {
     if (isExpired || wasDowngraded) {
       return {
@@ -347,16 +331,35 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
   const blockReason = getBlockReason();
 
   return (
-    <aside className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col h-screen shadow-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 md:p-4 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-2 font-serif text-lg md:text-xl font-semibold text-primary">
-          <TrendingUp className="h-6 w-6 md:h-7 md:w-7 shrink-0" />
-        <span className="whitespace-nowrap">StockWhisperer AI</span>
-        </Link>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 z-30"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      <aside className={cn(
+        "w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col h-screen shadow-lg",
+        "fixed inset-y-0 left-0 lg:static lg:translate-x-0 z-40 transition-transform duration-300 ease-in-out",
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        <div className="flex items-center justify-between p-3 md:p-4 border-b border-sidebar-border">
+          <Link href="/chat" className="flex items-center gap-2 font-serif text-lg md:text-xl font-semibold text-primary">
+            <TrendingUp className="h-6 w-6 md:h-7 md:w-7 shrink-0" />
+            <span className="whitespace-nowrap">StockWhisperer AI</span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden h-8 w-8"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
 
-      {/* New Chat Button */}
         <div className="p-2 border-b border-sidebar-border">
             <Button
                 variant="ghost"
@@ -380,7 +383,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                 </span>
             </Button>
 
-            {/* Chat Limit Display */}
             {user && !subLoading && (
                 <div className="px-2 py-1 text-xs text-muted-foreground">
                     <div className="flex items-center justify-between">
@@ -399,6 +401,7 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                                 <span className="text-destructive">(Expired)</span>
                             )}
                             {lastChecked && (
+                                <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger>
                                         <RefreshCw 
@@ -416,6 +419,7 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                                         </p>
                                     </TooltipContent>
                                 </Tooltip>
+                                </TooltipProvider>
                             )}
                         </span>
                         {expirationInfo && !isExpired && (
@@ -428,7 +432,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                 </div>
             )}
 
-            {/* Block Reason Alert */}
             {blockReason && (
                 <Alert className={cn(
                     "mt-2 border-destructive/20 bg-destructive/5",
@@ -442,7 +445,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                 </Alert>
             )}
 
-            {/* Expiring Soon Warning (separate from block reasons) */}
             {isExpiringSoon && !isExpired && !hasReachedChatLimit && (
                 <Alert className="mt-2 border-yellow-500/20 bg-yellow-500/5">
                     <Clock className="h-4 w-4 text-yellow-600" />
@@ -453,7 +455,6 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
                 </Alert>
             )}
 
-            {/* Downgrade Notice */}
             {wasDowngraded && (
                 <Alert className="mt-2 border-orange-500/20 bg-orange-500/5">
                     <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -473,237 +474,223 @@ export default function ChatSidebar({ onNavigate }: ChatSidebarProps = {}) {
             )}
         </div>
 
-      {/* Chat History List */}
-      <div className="flex-1 overflow-y-auto p-1 md:p-2 space-y-1">
-          <h3 className="flex items-center gap-2 px-2 text-xs md:text-sm font-medium text-sidebar-foreground/70 mb-1">
-             <History size={14} /> History
-          </h3>
+        <div className="flex-1 overflow-y-auto p-1 md:p-2 space-y-1">
+            <h3 className="flex items-center gap-2 px-2 text-xs md:text-sm font-medium text-sidebar-foreground/70 mb-1">
+                <History size={14} /> History
+            </h3>
 
-          {/* Loading Skeletons */}
-          {(loadingChats || subLoading) && (
-             <div className="space-y-1 px-1">
+            {(loadingChats || subLoading) && (
+                <div className="space-y-1 px-1">
                 <Skeleton className="h-8 w-full rounded-md" />
                 <Skeleton className="h-8 w-full rounded-md" />
                 <Skeleton className="h-8 w-full rounded-md" />
-             </div>
-          )}
+                </div>
+            )}
 
-          {/* Error Display */}
-          {(errorChats || subError) && !loadingChats && !subLoading && (
-             <div className="p-1 md:p-2 text-destructive flex items-center gap-2 text-xs md:text-sm bg-destructive/10 rounded-md mx-1">
-                 <AlertTriangle size={14} />
-                 <span className="whitespace-normal">{errorChats || subError}</span>
-             </div>
-          )}
+            {(errorChats || subError) && !loadingChats && !subLoading && (
+                <div className="p-1 md:p-2 text-destructive flex items-center gap-2 text-xs md:text-sm bg-destructive/10 rounded-md mx-1">
+                    <AlertTriangle size={14} />
+                    <span className="whitespace-normal">{errorChats || subError}</span>
+                </div>
+            )}
 
-          {/* No Chats Message */}
-          {!loadingChats && !subLoading && !errorChats && !subError && chats.length === 0 && user && (
-             <p className="p-1 md:p-2 text-muted-foreground text-xs md:text-sm text-center italic">
-               No chat history yet.
-             </p>
-          )}
+            {!loadingChats && !subLoading && !errorChats && !subError && chats.length === 0 && user && (
+                <p className="p-1 md:p-2 text-muted-foreground text-xs md:text-sm text-center italic">
+                No chat history yet.
+                </p>
+            )}
 
-          {/* Chat List Items */}
-          {!loadingChats && !subLoading && !errorChats && !subError && chats.map((chat) => (
-             <div key={chat.id} className="group relative rounded-md hover:bg-sidebar-accent">
-                 <TooltipProvider delayDuration={100}>
-                     <Tooltip>
-                         <TooltipTrigger asChild>
-                             <Link
-                                 href={`/chat/${chat.id}`}
-                                 className={cn(
-                                     "flex w-full items-center justify-between gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-colors",
-                                     isActive(chat.id)
-                                         ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                                         : 'text-sidebar-foreground hover:text-sidebar-accent-foreground'
-                                 )}
-                                 onClick={() => { if (onNavigate) onNavigate(); }}
-                             >
-                                 <span className="truncate flex-1">{chat.title}</span>
-                             </Link>
-                         </TooltipTrigger>
-                         <TooltipContent side="right" className="max-w-[200px] truncate bg-background text-foreground border border-border shadow-lg">
-                             {chat.title}
-                         </TooltipContent>
-                     </Tooltip>
-                 </TooltipProvider>
+            {!loadingChats && !subLoading && !errorChats && !subError && chats.map((chat) => (
+                <div key={chat.id} className="group relative rounded-md hover:bg-sidebar-accent">
+                    <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Link
+                                    href={`/chat/${chat.id}`}
+                                    className={cn(
+                                        "flex w-full items-center justify-between gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-colors",
+                                        isActive(chat.id)
+                                            ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+                                            : 'text-sidebar-foreground hover:text-sidebar-accent-foreground'
+                                    )}
+                                    onClick={() => { if (onNavigate) onNavigate(); }}
+                                >
+                                    <span className="truncate flex-1">{chat.title}</span>
+                                </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[200px] truncate bg-background text-foreground border border-border shadow-lg">
+                                {chat.title}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
 
-                  {/* Delete Button */}
-                  <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                          <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={Boolean(deletingChatId)}
-                              className={cn(
-                                 "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-1 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity",
-                                 "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
-                                 "disabled:opacity-50 disabled:pointer-events-none"
-                              )}
-                              aria-label={`Delete chat: ${chat.title}`}
-                              onClick={(e) => e.stopPropagation()}
-                         >
-                             {deletingChatId === chat.id ? (
-                                 <Loader2 size={12} className="animate-spin" />
-                             ) : (
-                                 <Trash2 size={12} />
-                             )}
-                          </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                          <AlertDialogHeader>
-                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                             <AlertDialogDescription>
-                               This action cannot be undone. This will permanently delete the chat
-                               session titled "<span className="font-medium">{chat.title}</span>".
-                               <br/>
-                              <strong className="text-destructive">(Note: Full deletion may require backend setup in production)</strong>
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={(e) => handleDeleteChat(chat.id, e)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={Boolean(deletingChatId)}
+                                className={cn(
+                                    "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-1 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity",
+                                    "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                                    "disabled:opacity-50 disabled:pointer-events-none"
+                                )}
+                                aria-label={`Delete chat: ${chat.title}`}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {deletingChatId === chat.id ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                    <Trash2 size={12} />
+                                )}
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the chat
+                                session titled "<span className="font-medium">{chat.title}</span>".
+                                <br/>
+                                <strong className="text-destructive">(Note: Full deletion may require backend setup in production)</strong>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                onClick={(e) => handleDeleteChat(chat.id, e)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 
-                              disabled={Boolean(deletingChatId === chat.id || !isDbAvailable)}
-                             >
-                              {deletingChatId === chat.id ? 'Deleting...' : 'Delete Chat'}
-                             </AlertDialogAction>
-                          </AlertDialogFooter>
-                      </AlertDialogContent>
-                  </AlertDialog>
-             </div>
-          ))}
-      </div>
+                                disabled={Boolean(deletingChatId === chat.id || !isDbAvailable)}
+                                >
+                                {deletingChatId === chat.id ? 'Deleting...' : 'Delete Chat'}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            ))}
+        </div>
 
-      {/* Upgrade Dialog */}
-      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl md:text-3xl font-serif font-bold text-primary flex items-center gap-2">
-              <Crown className="h-7 w-7"/> 
-              {isExpired || wasDowngraded ? 'Subscription Expired' : 'Upgrade Required'}
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              {isExpired || wasDowngraded 
-                ? `Your ${originalPlanName || originalPlan || 'premium'} subscription has expired. Upgrade to restore full access and create new discussions.`
-                : "You've reached your chat limit. Upgrade to continue creating new discussions."
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <SubscriptionDialogContent  />
-        </DialogContent>
-      </Dialog>
+        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+            <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+                <DialogTitle className="text-2xl md:text-3xl font-serif font-bold text-primary flex items-center gap-2">
+                <Crown className="h-7 w-7"/> 
+                {isExpired || wasDowngraded ? 'Subscription Expired' : 'Upgrade Required'}
+                </DialogTitle>
+                <DialogDescription className="text-base">
+                {isExpired || wasDowngraded 
+                    ? `Your ${originalPlanName || originalPlan || 'premium'} subscription has expired. Upgrade to restore full access and create new discussions.`
+                    : "You've reached your chat limit. Upgrade to continue creating new discussions."
+                }
+                </DialogDescription>
+            </DialogHeader>
+            <SubscriptionDialogContent  />
+            </DialogContent>
+        </Dialog>
 
-      {/* Footer Section */}
-      <div className="mt-auto p-1 md:p-2 border-t border-sidebar-border">
-         {/* Show Footer only if user is logged in and no auth error */}
-         {user && !authError && (
-             <div className="space-y-1">
-                 {/* Subscription Dialog */}
-                 <Dialog>
-                     <DialogTrigger asChild>
-                         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm">
-                             <Crown size={16}/>
-                             <span className="flex-1 text-left">Subscription</span>
-                             {(isExpired || wasDowngraded) && (
-                                 <Badge variant="destructive" className="text-xs px-1 py-0 h-4">
-                                     Expired
-                                 </Badge>
-                             )}
-                             {isExpiringSoon && !isExpired && (
-                                 <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
-                                     {daysUntilExpiration}d
-                                 </Badge>
-                             )}
-                         </Button>
-                     </DialogTrigger>
-                     <DialogContent className="sm:max-w-3xl">
-                         <DialogHeader>
-                             <DialogTitle className="text-2xl md:text-3xl font-serif font-bold text-primary flex items-center gap-2">
-                                 <Crown className="h-7 w-7"/> Subscription Plans
-                             </DialogTitle>
-                             <DialogDescription className="text-base">Choose the plan that best suits your needs.</DialogDescription>
-                         </DialogHeader>
-                         <SubscriptionDialogContent  />
-                     </DialogContent>
-                 </Dialog>
+        <div className="mt-auto p-1 md:p-2 border-t border-sidebar-border">
+            {user && !authError && (
+                <div className="space-y-1">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm">
+                                <Crown size={16}/>
+                                <span className="flex-1 text-left">Subscription</span>
+                                {(isExpired || wasDowngraded) && (
+                                    <Badge variant="destructive" className="text-xs px-1 py-0 h-4">
+                                        Expired
+                                    </Badge>
+                                )}
+                                {isExpiringSoon && !isExpired && (
+                                    <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
+                                        {daysUntilExpiration}d
+                                    </Badge>
+                                )}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-3xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl md:text-3xl font-serif font-bold text-primary flex items-center gap-2">
+                                    <Crown className="h-7 w-7"/> Subscription Plans
+                                </DialogTitle>
+                                <DialogDescription className="text-base">Choose the plan that best suits your needs.</DialogDescription>
+                            </DialogHeader>
+                            <SubscriptionDialogContent  />
+                        </DialogContent>
+                    </Dialog>
 
-                 {/* Settings Dialog */}
-                 <Dialog>
-                     <DialogTrigger asChild>
-                         <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm">
-                             <Settings size={16} />
-                             <span>Settings</span>
-                         </Button>
-                     </DialogTrigger>
-                     <DialogContent className="sm:max-w-lg">
-                         <DialogHeader>
-                             <DialogTitle className="font-serif text-2xl flex items-center gap-2">
-                                 <Settings size={16} className="text-primary"/> Account Settings
-                             </DialogTitle>
-                             <DialogDescription>Manage your account preferences.</DialogDescription>
-                         </DialogHeader>
-                         <SettingsDialogContent />
-                     </DialogContent>
-                 </Dialog>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm">
+                                <Settings size={16} />
+                                <span>Settings</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle className="font-serif text-2xl flex items-center gap-2">
+                                    <Settings size={16} className="text-primary"/> Account Settings
+                                </DialogTitle>
+                                <DialogDescription>Manage your account preferences.</DialogDescription>
+                            </DialogHeader>
+                            <SettingsDialogContent />
+                        </DialogContent>
+                    </Dialog>
 
-                 {/* Logout Button */}
-                 <Button
-                     variant="ghost"
-                     onClick={handleLogout}
-                     disabled={!auth}
-                     className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm"
-                 >
-                     <LogOut size={16} />
-                     <span>Logout</span>
-                 </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={handleLogout}
+                        disabled={!auth}
+                        className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 text-sm"
+                    >
+                        <LogOut size={16} />
+                        <span>Logout</span>
+                    </Button>
 
-                 {/* User Info */}
-                 <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground border-t border-sidebar-border pt-2 mt-1">
-                     <Avatar className="h-6 w-6">
+                    <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground border-t border-sidebar-border pt-2 mt-1">
+                        <Avatar className="h-6 w-6">
                         {user.photoURL ? (
-                           <AvatarImage src={user.photoURL} alt={user.displayName || user.email || 'User'} />
+                            <AvatarImage src={user.photoURL} alt={user.displayName || user.email || 'User'} />
                         ) : null}
-                         <AvatarFallback className="text-xs bg-sidebar-accent text-sidebar-accent-foreground">
-                             {user.email ? user.email[0].toUpperCase() : '?'}
-                         </AvatarFallback>
-                     </Avatar>
-                     <div className="flex-1 truncate">
-                         <div className="truncate">{user.email}</div>
-                         {subscription && (
-                             <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
-                                 <span>{getPlanDisplayName(effectivePlan)}</span>
-                                 {(isExpired || wasDowngraded) && (
-                                     <Badge variant="destructive" className="text-xs px-1 py-0 h-3">
-                                         Expired
-                                     </Badge>
-                                 )}
-                                 {isExpiringSoon && !isExpired && (
-                                     <Badge variant="secondary" className="text-xs px-1 py-0 h-3">
-                                         {daysUntilExpiration}d left
-                                     </Badge>
-                                 )}
-                             </div>
-                         )}
-                     </div>
-                 </div>
-             </div>
-         )}
-          {/* Auth Error in Footer */}
-           {authError && (
-             <div className="px-2 py-1 text-xs text-destructive flex items-center gap-1 bg-destructive/10 rounded-md">
-               <AlertTriangle size={12}/> Auth Error
-             </div>
-           )}
-            {/* Show loading indicator for auth check */}
-           {authLoading && (
-             <div className="flex items-center justify-center px-2 py-1 text-xs text-muted-foreground">
-                 <Loader2 size={14} className="animate-spin mr-1"/> Loading user...
-             </div>
-           )}
-      </div>
-    </aside>
+                            <AvatarFallback className="text-xs bg-sidebar-accent text-sidebar-accent-foreground">
+                                {user.email ? user.email[0].toUpperCase() : '?'}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 truncate">
+                            <div className="truncate">{user.email}</div>
+                            {subscription && (
+                                <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                                    <span>{getPlanDisplayName(effectivePlan)}</span>
+                                    {(isExpired || wasDowngraded) && (
+                                        <Badge variant="destructive" className="text-xs px-1 py-0 h-3">
+                                            Expired
+                                        </Badge>
+                                    )}
+                                    {isExpiringSoon && !isExpired && (
+                                        <Badge variant="secondary" className="text-xs px-1 py-0 h-3">
+                                            {daysUntilExpiration}d left
+                                        </Badge>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {authError && (
+                <div className="px-2 py-1 text-xs text-destructive flex items-center gap-1 bg-destructive/10 rounded-md">
+                <AlertTriangle size={12}/> Auth Error
+                </div>
+            )}
+            {authLoading && (
+                <div className="flex items-center justify-center px-2 py-1 text-xs text-muted-foreground">
+                    <Loader2 size={14} className="animate-spin mr-1"/> Loading user...
+                </div>
+            )}
+        </div>
+      </aside>
+    </>
   );
 }

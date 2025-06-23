@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { SendHorizonal, Loader2, BrainCircuit, User, AlertTriangle, DatabaseZap, Crown, Zap, Paperclip, X } from 'lucide-react';
+import { SendHorizonal, Loader2, BrainCircuit, User, AlertTriangle, DatabaseZap, Crown, Zap, Paperclip, X, Menu } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import type { MessageData, SimpleHistoryMessage, MessageContentPart } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Image from 'next/image';
+import { useMobileSidebar } from '@/contexts/MobileSidebarContext';
 
 interface ChatAreaProps {
   chatId: string;
@@ -60,6 +61,7 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
   const scrollAreaViewportRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMounted = useRef(false);
+  const { setSidebarOpen } = useMobileSidebar();
 
   // --- Scrolling ---
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -449,11 +451,20 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
 
     return (
       <div className="px-3 lg:px-4 py-2 lg:py-3 bg-muted/30 border-b border-border/50">
-        <div className="flex items-center justify-between text-xs lg:text-sm">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between text-xs lg:text-sm gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-8 w-8 -ml-2"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
             <Badge 
               variant={isAtLimit ? "destructive" : isNearLimit ? "secondary" : "outline"}
-              className="text-xs px-2 py-1"
+              className="text-xs px-2 py-1 shrink-0"
             >
               <Zap className="h-3 w-3 mr-1" />
               <span className="hidden sm:inline">
@@ -463,15 +474,16 @@ export default function ChatArea({ chatId }: ChatAreaProps) {
                 {tokenLimitInfo.effectivePlan.split('_')[0].toUpperCase()}
               </span>
             </Badge>
-            <span className="text-muted-foreground hidden sm:inline">
-              {tokenLimitInfo.currentUsage.toLocaleString()} / {tokenLimitInfo.limit.toLocaleString()} tokens
-            </span>
+            <div className="text-muted-foreground hidden sm:flex items-center gap-1 min-w-0">
+              <span className="truncate">{tokenLimitInfo.currentUsage.toLocaleString()} / {tokenLimitInfo.limit.toLocaleString()}</span>
+              <span className="hidden md:inline">tokens</span>
+            </div>
             <span className="text-muted-foreground sm:hidden text-xs">
               {Math.round(tokenLimitInfo.currentUsage / 1000)}k / {Math.round(tokenLimitInfo.limit / 1000)}k
             </span>
           </div>
           <span className={cn(
-            "font-medium text-xs lg:text-sm",
+            "font-medium text-xs lg:text-sm text-right shrink-0",
             isAtLimit ? "text-destructive" : isNearLimit ? "text-orange-500" : "text-muted-foreground"
           )}>
             <span className="hidden sm:inline">{tokenLimitInfo.remainingTokens.toLocaleString()} remaining</span>

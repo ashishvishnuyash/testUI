@@ -1,20 +1,18 @@
+'use client';
 
-import type { ReactNode } from 'react';
-import ChatSidebar from '@/components/chat/ChatSidebar';
-import { AuthProvider } from '@/components/auth/AuthProvider'; // Ensure AuthProvider wraps chat layout
+import { ReactNode } from 'react';
+import ChatLayout from '@/components/chat/ChatLayout';
+import { AuthProvider } from '@/components/auth/AuthProvider';
+import { MobileSidebarProvider } from '@/contexts/MobileSidebarContext';
 
-export default function ChatLayout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: { children: ReactNode }) {
   return (
-    // AuthProvider might already be in RootLayout, double check if needed here
-    // <AuthProvider>
-      <div className="flex h-screen overflow-hidden bg-background">
-        {/* Sidebar specifically for chat listing and creation */}
-        <ChatSidebar />
-        {/* Main content area for the chat conversation */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+    <AuthProvider>
+      <MobileSidebarProvider>
+        <ChatLayout>
           {children}
-        </main>
-      </div>
-    // </AuthProvider>
+        </ChatLayout>
+      </MobileSidebarProvider>
+    </AuthProvider>
   );
 }
