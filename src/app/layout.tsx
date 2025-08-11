@@ -3,7 +3,8 @@ import { Inter as FontSans, Lora as FontSerif } from 'next/font/google'; // Usin
 import './globals.css';
 import { cn } from "@/lib/utils";
 import { AuthProvider } from '@/components/auth/AuthProvider';
-import { TooltipProvider } from "@/components/ui/tooltip";import { Toaster } from "@/components/ui/toaster" // Import Toaster
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster" // Import Toaster
 import { ThemeProvider } from '@/providers/ThemeProvider';
 
 const fontSans = FontSans({

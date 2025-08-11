@@ -16,9 +16,9 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        // User is logged in, redirect them to the main chat interface page
-        console.log("[Home Page Effect] User logged in, redirecting to /chat.");
-        router.replace('/chat'); // Use replace to avoid adding landing page to history
+        // User is logged in, redirect them to the dashboard
+        console.log("[Home Page Effect] User logged in, redirecting to /dashboard.");
+        router.replace('/dashboard'); // Use replace to avoid adding landing page to history
       } else {
         // User is not logged in, ensure they see the landing page
         console.log("[Home Page Effect] Not logged in, rendering LandingPage.");
@@ -54,7 +54,7 @@ export default function Home() {
    return (
        <div className="flex flex-col items-center justify-center h-screen p-4 space-y-6 bg-gradient-to-br from-background via-secondary to-background">
          <Skeleton className="h-16 w-16 rounded-full" />
-         <p className="text-muted-foreground">Redirecting to chat...</p>
+         <p className="text-muted-foreground">Redirecting to dashboard...</p>
        </div>
    );
 }

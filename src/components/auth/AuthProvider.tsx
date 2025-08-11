@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth, initializationError as firebaseInitError } from '@/lib/firebase/config'; // Import init error
+import { createOrUpdateUserProfile } from '@/lib/firebase/users';
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
@@ -39,8 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     console.log("[AuthProvider] Setting up Firebase Auth listener...");
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // console.log("[AuthProvider] Auth state changed. User:", user ? user.uid : null);
+      
+      // Create or update user profile when user signs in
+      if (user) {
+        try {
+          await createOrUpdateUserProfile(user);
+        } catch (error) {
+          console.error('Error creating/updating user profile:', error);
+          // Don't block auth flow for profile creation errors
+        }
+      }
+      
       setUser(user);
       setLoading(false);
       setAuthError(null); // Clear any previous auth error on successful state change

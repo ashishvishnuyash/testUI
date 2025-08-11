@@ -60,8 +60,8 @@ export default function LoginForm() {
       
       // console.log("🟢 LoginForm: signInWithEmailAndPassword successful and email verified.");
       // Login successful, AuthProvider will handle redirect or state change
-      // Redirect to the main chat interface page after successful login
-      router.push('/chat');
+      // Redirect to the dashboard after successful login
+      router.push('/dashboard');
     } catch (err: any) {
       console.error("🔴 LoginForm: Error during signInWithEmailAndPassword:", err);
       let errorMessage = 'Failed to login. Please try again.';
@@ -157,8 +157,8 @@ export default function LoginForm() {
       
       // Google accounts are automatically verified, so we can proceed
       // Login successful, AuthProvider will handle redirect or state change
-      // Redirect to the main chat interface page after successful login
-      router.push('/chat');
+      // Redirect to the dashboard after successful login
+      router.push('/dashboard');
     } catch (err: any) {
       console.error("🔴 LoginForm: Error during Google login:", err);
       let errorMessage = 'Failed to login with Google. Please try again.';
